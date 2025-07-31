@@ -1,13 +1,8 @@
-import torch
 import torch.nn as nn
 import torchvision.datasets
 
-from torch.nn import Sequential, MaxPool2d, Conv2d, Flatten, Linear, L1Loss
+from torch.nn import Sequential, MaxPool2d, Conv2d, Flatten, Linear
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-
-
-
 
 dataset = torchvision.datasets.CIFAR10("./data",
                                        train=False,

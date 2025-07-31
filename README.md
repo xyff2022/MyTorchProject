@@ -72,6 +72,7 @@ pip install \-r requirements.txt
 
 本项目不包含数据集文件，请将您的数据集文件放入 data/ 文件夹，按照以下结构准备您的数据集：
 
+```
 data/  
 ├── train/  
 │   ├── class\_a/  
@@ -84,6 +85,9 @@ data/
     │   └── ...  
     └── class\_b/  
         └── ...
+```
+
+
 
 ### 4\. 运行模型测试
 

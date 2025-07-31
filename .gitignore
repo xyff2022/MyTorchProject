@@ -1,0 +1,14 @@
+# 忽略 Python 虚拟环境
+.venv/
+venv/
+__pycache__/
+
+# 忽略大型数据和日志文件
+data/
+dataset/
+logs/
+*.onnx
+
+# 忽略 PyCharm/VSCode 的配置文件
+.idea/
+.vscode/

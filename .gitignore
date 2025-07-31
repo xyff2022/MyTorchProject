@@ -5,7 +5,7 @@ __pycache__/
 
 # 忽略大型数据和日志文件
 data/
-dataset/
+
 logs/
 *.onnx
 

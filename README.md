@@ -102,6 +102,17 @@ data
 
 
 
+data
+    └─your_data
+        ├─train
+        │  ├─images
+        │  └─labels
+        └─val
+            ├─images
+            └─labels
+
+
+
 ### 4\. 运行模型测试
 
 所有模型代码均放置在 Model 文件夹中。

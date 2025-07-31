@@ -64,8 +64,8 @@ class VocDataset(Dataset):
 
 # 单元测试(输入main即可)
 if __name__ == '__main__':
-    train_dataset = VocDataset(r"E:\py project\torchProject\dataset\HelmetDataset-VOC\train\images",
-                              r"E:\py project\torchProject\dataset\HelmetDataset-VOC\train\labels",
+    train_dataset = VocDataset(r"E:\py project\torchProject\data\HelmetDataset-VOC\train\images",
+                              r"E:\py project\torchProject\data\HelmetDataset-VOC\train\labels",
                                transforms.Compose([transforms.ToTensor()]),
                                None
                                )

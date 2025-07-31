@@ -60,8 +60,8 @@ class YOLODataset(Dataset):
 
 # 单元测试(输入main即可)
 if __name__ == '__main__':
-    train_dataset = YOLODataset(r"E:\py project\torchProject\dataset\HelmetDataset-YOLO-Train\images",
-                              r"E:\py project\torchProject\dataset\HelmetDataset-YOLO-Train\labels",
+    train_dataset = YOLODataset(r"E:\py project\torchProject\data\HelmetDataset-YOLO-Train\images",
+                              r"E:\py project\torchProject\data\HelmetDataset-YOLO-Train\labels",
                                 transforms.Compose([transforms.ToTensor()]),
                                 None
                                 )

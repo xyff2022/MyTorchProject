@@ -11,19 +11,34 @@
 
 ## 📂 项目结构
 
+本项目遵循关注点分离的原则，将不同功能的代码组织在独立的模块中。
+
+### **结构概览**
+
 torchProject/  
 ├── .gitignore          \# Git忽略文件配置  
-├── Model/              \# 存放所有模型定义文件  
-│   ├── Model01.py  
-│   └── ResNet.py  
-├── utils/              \# (可选) 存放辅助工具和函数  
-├── dataset/            \# 存放所有自定义数据集加载器  
-│   ├── vocDataset.py  
-│   └── YOLODataset.py  
+├── Model/              \# 存放所有模型定义文件 (如 ResNet.py)  
+├── dataset/            \# 存放所有自定义数据集加载器 (如 YOLODataset.py)  
 ├── data/               \# (本地) 存放原始数据集文件 (被.gitignore忽略)  
 ├── logs/               \# (本地) 存放TensorBoard日志 (被.gitignore忽略)  
+├── scripts/            \# (可选) 存放训练、评估、预测等可执行脚本  
+├── tests/              \# (可选) 存放单元测试和集成测试  
 ├── requirements.txt    \# 项目所需的Python依赖包列表  
 └── README.md           \# 本说明文档
+
+### **各部分功能说明**
+
+| 文件/文件夹      | 作用说明                                                     |
+| :--------------- | :----------------------------------------------------------- |
+| README.md        | 项目说明文档，提供项目概览和使用指南。                       |
+| requirements.txt | 记录项目所需的所有Python依赖包及其版本。                     |
+| .gitignore       | 配置Git应忽略的文件和文件夹，避免上传不必要的内容。          |
+| Model/           | **核心模块**: 存放所有神经网络模型的定义（例如 ResNet.py）。 |
+| dataset/         | **核心模块**: 存放所有自定义数据集加载类（Dataset）。        |
+| data/            | **本地数据**: 用于存放训练、验证和测试的原始数据（图片、标签等）。此目录被.gitignore忽略。 |
+| logs/            | **本地日志**: 用于存放训练过程中产生的日志文件，如TensorBoard的记录。此目录被.gitignore忽略。 |
+| scripts/         | **执行入口**: 存放可直接运行的脚本，如 train.py, test.py。   |
+| tests/           | **测试用例**: 存放对模型、数据加载器等模块的单元测试代码。   |
 
 ## 🚀 快速开始
 
@@ -55,21 +70,20 @@ pip install \-r requirements.txt
 
 ### 3\. 准备数据集
 
-本项目不包含数据集文件。请根据您的需求，按照以下结构准备您的数据集：
+本项目不包含数据集文件，请将您的数据集文件放入 data/ 文件夹，按照以下结构准备您的数据集：
 
-torchProject/  
-└── data/  
-    ├── train/  
-    │   ├── class\_a/  
-    │   │   ├── image1.jpg  
-    │   │   └── ...  
-    │   └── class\_b/  
-    │       └── ...  
-    └── val/  
-        ├── class\_a/  
-        │   └── ...  
-        └── class\_b/  
-            └── ...
+data/  
+├── train/  
+│   ├── class\_a/  
+│   │   ├── image1.jpg  
+│   │   └── ...  
+│   └── class\_b/  
+│       └── ...  
+└── val/  
+    ├── class\_a/  
+    │   └── ...  
+    └── class\_b/  
+        └── ...
 
 ### 4\. 运行模型测试
 

@@ -184,14 +184,14 @@ if __name__ == '__main__':
 
     print("--- 正在测试 ResNet-50 ---")
     resnet50_blocks = [3, 4, 6, 3]
-    resnet50_channels = [64, 128, 256, 512]
-    resnet50_bottlenecks = [256, 512, 1024, 2048]
+    resnet50_channels = [256, 512, 1024, 2048]
+    resnet50_bottlenecks = [64, 128, 256, 512]
 
     try:
         model = ResNet(
             n_blocks=resnet50_blocks,
+            bottlenecks=resnet50_bottlenecks,
             n_channels=resnet50_channels,
-            bottlenecks=resnet50_bottlenecks
 
             # img_channels 和 first_kernel_size 使用默认值 3 和 7
         )

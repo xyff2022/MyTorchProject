@@ -81,7 +81,7 @@ class BottleneckResidualBlock(Module):
         """
 
         """
-                Args:
+        Args:
         downsample: Optional[nn.Module] = None,
         下采样
         cardinality: int = 1,

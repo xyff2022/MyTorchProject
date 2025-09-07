@@ -23,8 +23,6 @@ def downsample_conv(
         norm_layer: Optional[Type[nn.Module]] = None,
 ) -> Module:
     norm_layer = norm_layer or nn.BatchNorm2d
-    print(in_channels)
-    print(out_channels)
     return Sequential(*[
         Conv2d(in_channels, out_channels, 1, stride, 0, bias = False),
         norm_layer(out_channels)
@@ -155,9 +153,6 @@ class BottleneckResidualBlock(Module):
         if self.downsample is not None:
             shortcut = self.downsample(shortcut)
 
-        print(x.shape)
-        print(shortcut.shape)
-
         return self.act3(shortcut + x)
 
 
@@ -277,14 +272,15 @@ if __name__ == '__main__':
     resnet50_blocks = (3, 4, 6, 3)
     resnet50_channels = (64, 128, 256, 512)
     in_channels = 3
+
     try:
         model = ResNet50(
             BottleneckResidualBlock,
             resnet50_blocks,
             in_channels,
-            resnet50_channels,
-
+            resnet50_channels
         )
+
         print("模型已成功创建！")
         dummy_input = torch.randn(4, 3, 224, 224)
         out = model(dummy_input)
@@ -292,6 +288,7 @@ if __name__ == '__main__':
         print(f"输出尺寸: {out.shape}")
         assert out.shape == (4, 2048, 7, 7), "输出尺寸不匹配！"
         print("\n模型尺寸验证通过！")
+
     except Exception as e:
         print(f"\n模型测试失败，错误信息: {e}")
         print("请检查您的 ResNet34 类实现是否有误。")

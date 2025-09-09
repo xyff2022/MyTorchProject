@@ -33,14 +33,7 @@ class FasterRCNN(nn.Module):
         # --- 非神经网络模块也在这里实例化 ---
         # 锚点生成器
         self.anchor_generate = AnchorGenerator()
-        # 提议生成器 (在推理时使用)
-        # 注意：在训练和推理时，ProposalCreator 的参数不同
-        # 我们在这里先创建一个用于推理的实例
-        self.proposal_creator_train = ProposalCreator('train')
-        self.proposal_creator_validation = ProposalCreator('validation')
-        # --- 新增: 实例化两个"标准答案"生成器 ---
-        self.anchor_target_creator = AnchorTargetCreator()
-        self.proposal_target_creator = ProposalTargetCreator()
+
 
     def forward(self, image, targets=None):
         """
@@ -53,107 +46,114 @@ class FasterRCNN(nn.Module):
 
         # --- 步骤 6.3.1：特征提取 ---
         # 将图片送入主干网络，得到特征图
-        # 输入: [1, 3, 800, 800]
-        # 输出: [1, 1024, 50, 50]
+        # 输入: [B, 3, 800, 800]
+        # 输出: [B, 1024, 50, 50]
         feature_map = self.backbone(image)
 
-        # --- 步骤 6.3.2：RPN 预测 ---
-        # 将特征图送入 RPN，得到原始的偏移量和分数
-        # 输入: [1, 1024, 50, 50]
-        # 输出: rpn_locs [1, 22500, 4], rpn_scores [1, 22500, 2]
-        rpn_locs, rpn_scores = self.rpn(feature_map)
-
-        # --- 步骤 6.3.3：生成候选区域 (Proposal Generation) ---
-        # 1. 生成锚点
-        #    获取特征图尺寸，用于生成对应数量的锚点
-        _, _, H, W =feature_map.shape
+        # --- 步骤 6.3.2：生成候选区域 (Proposal Generation) ---
+        # 生成锚点
+        # 获取特征图尺寸，用于生成对应数量的锚点
+        B, _, H, W =feature_map.shape
+        image_size = image.shape[2:]
         anchors = self.anchor_generate.generate((H, W), device=image.device)
 
-        # 2. 选择 ProposalCreator 并生成提议
-        #    self.training 是 nn.Module 自带的属性，model.train()时为True, model.eval()时为False
+        # --- 步骤 6.3.3：RPN 预测 ---
+        # 将特征图送入 RPN，得到原始的偏移量和分数
+        # 输入:   [1, 1024, 50, 50]
+        # 输出:   rpn_locs [1, 22500, 4], rpn_scores [1, 22500, 2],
+        #        rpn_losses{"rpn_cls_losses","rpn_loc_losses"} or None
+        rpn_locs, rpn_scores, rpn_losses = self.rpn(feature_map, anchors, image_size, targets)
+
+        # --- 步骤 6.3.4: 选择 ProposalCreator 并生成提议 ---
+        # self.training 是 nn.Module 自带的属性，model.train()时为True, model.eval()时为False
         if self.training:
             proposal_creator =self.proposal_creator_train
         else:
             proposal_creator = self.proposal_creator_validation
 
-        # 我们假设 batch_size=1，所以直接取第0个元素的预测结果
-        # rpn_locs: [1, 22500, 4] -> [22500, 4]
-        # rpn_scores: [1, 22500, 2] -> [22500, 1] (只取前景分)
-        proposals = proposal_creator(rpn_locs[0],
-                                     rpn_scores[0][:, 1],
-                                     anchors,
-                                     image.shape[2:])
+        # 循环为批次中的每张图片生成候选区域
+        proposals = []
 
-        # 3. 准备 RoI Pooling 的输入 input
-        #    为 proposals 添加 batch_index 列
-        batch_indices = torch.zeros((proposals.shape[0], 1), device=image.device)
-        boxes = torch.cat([batch_indices, proposals], dim=1)
+        # rpn_locs: [B, 22500, 4] -> [22500, 4]
+        # rpn_scores: [B, 22500, 2] -> [22500, 1] (只取前景分)
+        for i in range(B):
+            # 将 RPN 的原始预测值解码成候选区域
+            image_proposals = proposal_creator(rpn_locs[i],
+                                        rpn_scores[i][:, 1],
+                                        anchors,
+                                        image.shape[2:])
+            proposals.append(image_proposals)
+
 
         # --- 步骤 6.3.4：通过检测头进行最终预测 ---
         # 将特征图和 input 送入检测头,pool层在检测头里
-        # 输入: feature_map [1, 1024, 50, 50], boxes [N, 5]
+        # 输入: feature_map [B, 1024, 50, 50], boxes [N, 5]
         # 输出: cls_scores [N, 21], bbox_offsets [N, 84]
         # N: 这是输入检测头的 RoI (候选区域) 的数量。这个值在训练和预测时是不同的：
         #   在训练时, N 等于 ProposalTargetCreator 采样出的数量（例如 128）。
         #   在预测时, N 等于 ProposalCreator 生成的候选区域数量（例如 2000）。
-        cls_scores, bbox_offsets = self.detector_head(feature_map, boxes)
+        detections, losses = self.detector_head(feature_map, proposals, image_size, targets)
 
-        # 在推理阶段，我们通常直接返回这些预测结果
-        # 在训练阶段，我们会返回一个包含所有中间结果和最终结果的字典用于计算损失
-        # 目前我们先只返回最终结果
-        return cls_scores, bbox_offsets
+        Loss = {}
+        if self.training:
+            Loss.update(rpn_losses)
+            Loss.update(losses)
+
+        return Loss if self.training else detections
 
 
-# --- 用于测试本步骤代码的脚本 ---
+# --- 用于测试本模块完整功能的脚本 ---
 if __name__ == '__main__':
-    print("--- 步骤 6.3.4 测试：实现 forward 方法 - 最终预测 ---")
+    print("--- FasterRCNN 最终组装测试 ---")
 
-    # --- 1. 实例化所有子模块 ---
-    resnet50_blocks = (3, 4, 6, 3)
-    resnet50_channels = (64, 128, 256, 512)
-    backbone_instance = ResNet50Backbone(
-        BottleneckResidualBlock, resnet50_blocks, 3, resnet50_channels
-    )
+    # 为了测试，我们需要在这里手动实例化所有子模块
+    from Model.FasterRCNN.Backbone import get_my_resnet50_backbone
+    from Model.FasterRCNN.Pooling import RoIPool
+
+    # 1. 实例化所有子模块
+    backbone_instance = get_my_resnet50_backbone()
+    # 注意：现在 RPN 和 DetectorHead 内部会自己实例化所需的组件
     rpn_instance = RegionProposalNetwork(in_channels=1024, mid_channels=512, num_anchors=9)
     roi_pooler_instance = RoIPool(output_size=7, spatial_scale=1.0 / 16)
-
-    num_classes = 20
     detector_head_instance = DetectorHead(
-        num_classes=num_classes,
+        num_classes=20,  # 假设是VOC数据集的20个类
         pooler=roi_pooler_instance,
         in_channels=1024
     )
 
-    # --- 2. 实例化完整的 FasterRCNN 模型 ---
+    # 2. 实例化完整的 FasterRCNN 模型
     model = FasterRCNN(
         backbone=backbone_instance,
         rpn=rpn_instance,
         detector_head=detector_head_instance
     )
+
+    print("模型组装成功！")
+
+    # 3. 创建模拟数据 (包含一个没有物体的图片来测试健壮性)
+    BATCH_SIZE = 2
+    dummy_images = torch.randn(BATCH_SIZE, 3, 800, 800)
+    dummy_targets = [
+        {'bboxes': torch.tensor([[10, 10, 100, 100]], dtype=torch.float32),
+         'labels': torch.tensor([1], dtype=torch.int64)},
+        # 第二张图片是纯背景，没有物体
+        {'bboxes': torch.empty((0, 4), dtype=torch.float32),
+         'labels': torch.empty((0), dtype=torch.int64)}
+    ]
+
+    # 4. 测试训练模式
+    print("\n--- 测试训练模式 ---")
+    model.train()
+    losses = model(dummy_images, dummy_targets)
+    print(f"返回的损失字典: {losses}")
+    assert "loss_rpn_cls" in losses and "loss_roi_cls" in losses
+    print("训练模式前向传播通过！(已处理纯背景图片)")
+
+    # 5. 测试评估模式
+    print("\n--- 测试评估模式 ---")
     model.eval()
-
-    # --- 3. 创建假的输入图片并进行前向传播 ---
-    dummy_image = torch.randn(1, 3, 800, 800)
-
-    # 调用完整的 forward 方法
-    cls_scores, bbox_offsets = model(dummy_image)
-
-    print(f"\n输入图片形状: {dummy_image.shape}")
-    print(f"最终分类分数输出形状: {cls_scores.shape}")
-    print(f"最终边界框偏移输出形状: {bbox_offsets.shape}")
-
-    # 验证输出形状
-    # RoI 的数量在验证模式下最多为 300
-    num_rois = cls_scores.shape[0]
-    expected_scores_shape = (num_rois, num_classes + 1)
-    expected_offsets_shape = (num_rois, (num_classes + 1) * 4)
-
-    assert cls_scores.shape == expected_scores_shape, "分类分数输出形状不匹配!"
-    assert bbox_offsets.shape == expected_offsets_shape, "边界框偏移输出形状不匹配!"
-
-    print("\n步骤 6.3.4 测试通过！Faster R-CNN 的完整前向传播已成功实现！")
-    print("整个步骤六（整合模型）已成功完成！")
-
-
-
-
+    with torch.no_grad():
+        detections = model(dummy_images)
+    print(f"返回了 {len(detections)} 张图片的检测结果。")
+    assert len(detections) == BATCH_SIZE
+    print("评估模式前向传播通过！")

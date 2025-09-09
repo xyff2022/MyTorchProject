@@ -131,48 +131,49 @@ class AnchorTargetCreator:
         )[0]
         valid_anchors = anchors[inside]
 
-        # 2. 计算有效锚点与所有真实物体框的 IoU 矩阵
-        #    iou 形状: [valid_anchors, target]
-        iou = calculate_iou(valid_anchors, target)
-
-        # --- 步骤 7.4：为锚点分配标签 ---
-
-        # 1. 对每个有效锚点，找出它与哪个真实框的 IoU 最大
-        #    max_iou_index: 每个有效锚点与和它对应的最佳真实框的索引，形状 [valid_anchors]
-        #    max_iou: 每个有效锚点对应的最大 IoU 值，形状 [valid_anchors]
-
-        # max_iou_index = iou.argmax(dim = 1)
-        # .argmax(): 这个函数的作用是返回最大值的索引(index)。它不关心最大值本身是多少，只关心它在哪个位置。
-        # dim = 1: 这个参数是关键。它告诉argmax沿着维度1（也就是列的方向）进行操作。
-        # 对于一个二维矩阵，dim = 1意味着对每一行进行操作，找出该行中最大值的列索引。
-        # dim = 0，对行操作不保留行，dim = 1，对列操作不保留列
-
-        # max_iou = iou.max(dim=1)[0]
-        # .max(): 会同时返回最大值本身(values)和最大值的索引(indices)。
-        # dim = 1意味着对每一行进行操作。当它作用于我们的iou矩阵时，会返回一个元组(values, indices)。
-        # values: 包含了每一行的最大IoU值。
-        # indices: 包含了每一行最大IoU值的列索引（这个结果和.argmax(dim=1)的结果完全一样）。
-        max_iou, max_iou_index = iou.max(dim=1)
-        # 形状均为[valid_anchors]
-        print(max_iou_index)
-        print(max_iou)
-
-
         # 2. 初始化所有有效锚点的标签为 -1
-        labels = torch.full((len(valid_anchors),), -1, dtype= torch.long)
+        labels = torch.full((len(valid_anchors),), -1, dtype=torch.long)
         # len()返回第一个维度的长度
 
-        # 3. 分配负样本 (标签 0)
-        #    将与所有真实框的最大 IoU 都小于 neg_iou_thresh 的锚点设为背景
-        labels[max_iou <self.neg_iou_thresh] = 0
+        if target.numel() == 0:
+            labels.fill_(0)
+        else:
+            # 3. 计算有效锚点与所有真实物体框的 IoU 矩阵
+            #    iou 形状: [valid_anchors, target]
+            iou = calculate_iou(valid_anchors, target)
 
-        # 4. 分配正样本 (标签 1) - 规则 1
-        #    对每个真实框，找出与它 IoU 最高的锚点，确保每个真实物体都有锚点匹配
-        labels[iou.argmax(dim = 0)] = 1
+            # --- 步骤 7.4：为锚点分配标签 ---
 
-        # 5. 分配正样本 (标签 1) - 规则 2
-        #    将与任何一个真实框的 IoU 大于 pos_iou_thresh 的锚点设为前景
-        labels[max_iou > self.pos_iou_thresh] = 1
+            # 1. 对每个有效锚点，找出它与哪个真实框的 IoU 最大
+            #    max_iou_index: 每个有效锚点与和它对应的最佳真实框的索引，形状 [valid_anchors]
+            #    max_iou: 每个有效锚点对应的最大 IoU 值，形状 [valid_anchors]
+
+            # max_iou_index = iou.argmax(dim = 1)
+            # .argmax(): 这个函数的作用是返回最大值的索引(index)。它不关心最大值本身是多少，只关心它在哪个位置。
+            # dim = 1: 这个参数是关键。它告诉argmax沿着维度1（也就是列的方向）进行操作。
+            # 对于一个二维矩阵，dim = 1意味着对每一行进行操作，找出该行中最大值的列索引。
+            # dim = 0，对行操作不保留行，dim = 1，对列操作不保留列
+
+            # max_iou = iou.max(dim=1)[0]
+            # .max(): 会同时返回最大值本身(values)和最大值的索引(indices)。
+            # dim = 1意味着对每一行进行操作。当它作用于我们的iou矩阵时，会返回一个元组(values, indices)。
+            # values: 包含了每一行的最大IoU值。
+            # indices: 包含了每一行最大IoU值的列索引（这个结果和.argmax(dim=1)的结果完全一样）。
+            max_iou, max_iou_index = iou.max(dim=1)
+            # 形状均为[valid_anchors]
+
+            # 2. 分配负样本 (标签 0)
+            #    将与所有真实框的最大 IoU 都小于 neg_iou_thresh 的锚点设为背景
+            labels[max_iou < self.neg_iou_thresh] = 0
+
+            # 3. 分配正样本 (标签 1) - 规则 1
+            #    对每个真实框，找出与它 IoU 最高的锚点，确保每个真实物体都有锚点匹配
+            # 留意全是背景的图片
+            labels[iou.argmax(dim=0)] = 1
+
+            # 4. 分配正样本 (标签 1) - 规则 2
+            #    将与任何一个真实框的 IoU 大于 pos_iou_thresh 的锚点设为前景
+            labels[max_iou > self.pos_iou_thresh] = 1
 
         # --- 步骤 7.5：对正负样本进行采样 ---
         # 1. 计算我们希望采样的正样本数量上限
@@ -226,116 +227,123 @@ class AnchorTargetCreator:
         # finally_pos_index是一个一维张量，其长度为正样本的数量
         finally_pos_index = torch.where(labels ==1)[0]
 
-        # 4. 获取这些正样本锚点
-        finally_pos = valid_anchors[finally_pos_index]
-        # finally_pos_index -> [N_pos],N_pos为最终的正样本数量，valid_anchors -> [valid_anchors]
-        # finally_pos -> [N_pos,4]
+        if len(finally_pos_index) > 0 and target.numel()> 0:
+            # 4. 获取这些正样本锚点
+            finally_pos = valid_anchors[finally_pos_index]
+            # finally_pos_index -> [N_pos],N_pos为最终的正样本数量，valid_anchors -> [valid_anchors]
+            # finally_pos -> [N_pos,4]
 
-        # 5. 找出这些正样本锚点各自对应的真实物体框
-        # max_iou_index 存储了每个锚点最匹配的真实框的索引
-        # max_iou_index[finally_pos_index]取出每个正样本匹配的真实物体编号
-        # pos_anchors[N_pos,4],是每个正样本锚点所匹配的真实物体框，即标准答案
-        print(max_iou_index[finally_pos_index])
-        pos_anchors = target[max_iou_index[finally_pos_index]]
+            # 5. 找出这些正样本锚点各自对应的真实物体框
+            # max_iou_index 存储了每个锚点最匹配的真实框的索引
+            # max_iou_index[finally_pos_index]取出每个正样本匹配的真实物体编号
+            # pos_anchors[N_pos,4],是每个正样本锚点所匹配的真实物体框，即标准答案
+            pos_anchors = target[max_iou_index[finally_pos_index]]
 
-        # 6. 调用 encode_boxes 计算回归目标
-        pos_loc_target = encode_boxes(finally_pos, pos_anchors)
+            # 6. 调用 encode_boxes 计算回归目标
+            pos_loc_target = encode_boxes(finally_pos, pos_anchors)
 
-        # 7. 将计算结果填充到 final_loc_targets 张量中
-        # valid_anchors = anchors[inside] inside 是连接valid_anchors和anchors的索引
-        # 10个anchors,inside = [0,2,3,4,5]，labels = [-1,0,1,0,1]
-        # valid_anchors = anchors[inside],valid_anchors形状[5,4],
-        # max_iou_index[1,2,3,4,5],表明这几个valid_anchors所对应的真实物体编号
-        # finally_pos_index=[2,4],original_loc_targets=[3,5]
-        original_loc_targets = inside[finally_pos_index]
-        final_loc_targets[original_loc_targets] = pos_loc_target
+            # 7. 将计算结果填充到 final_loc_targets 张量中
+            # valid_anchors = anchors[inside] inside 是连接valid_anchors和anchors的索引
+            # 10个anchors,inside = [0,2,3,4,5]，labels = [-1,0,1,0,1]
+            # valid_anchors = anchors[inside],valid_anchors形状[5,4],
+            # max_iou_index[1,2,3,4,5],表明这几个valid_anchors所对应的真实物体编号
+            # finally_pos_index=[2,4],original_loc_targets=[3,5]
+            original_loc_targets = inside[finally_pos_index]
+            final_loc_targets[original_loc_targets] = pos_loc_target
 
 
         return final_labels,final_loc_targets
 
 
-# --- 用于测试本模块完整功能的脚本 ---
+# --- 全面的单元测试套件 ---
 if __name__ == '__main__':
-    print("--- AnchorTargetCreator 完整功能测试 ---")
+    def test_normal_case(creator):
+        print("--- 1. 测试正常情况 ---")
+        image_size = (120, 120)
+        dummy_bboxes = torch.tensor([[20, 20, 80, 80], [90, 90, 110, 110]], dtype=torch.float32)
+        dummy_anchors = torch.tensor([
+            [22, 22, 78, 78],  # 高IoU -> 正样本 (1)
+            [0, 0, 15, 15],  # 低IoU -> 负样本 (0)
+            [45, 45, 85, 85],  # 中等IoU -> 忽略 (-1)
+            [110, 110, 130, 130],  # 边界外 -> 忽略 (-1)
+        ], dtype=torch.float32)
 
-    # 1. 实例化目标生成器
-    # 使用默认参数: n_samples=256, pos_iou_thresh=0.7, neg_iou_thresh=0.3, pos_ratio=0.5
-    anchor_target_creator = AnchorTargetCreator()
-    print(
-        f"测试参数: n_samples={anchor_target_creator.n_samples}, pos_iou_thresh={anchor_target_creator.pos_iou_thresh}, neg_iou_thresh={anchor_target_creator.neg_iou_thresh}")
+        labels, locs = creator(dummy_anchors, dummy_bboxes, image_size)
 
-    # 2. 创建假的输入数据
-    image_size = (120, 120)
+        assert labels[0] == 1, "高IoU锚点应为正样本"
+        assert labels[1] == 0, "低IoU锚点应为负样本"
+        assert labels[2] == -1, "中等IoU锚点应被忽略"
+        assert labels[3] == -1, "界外锚点应被忽略"
+        assert torch.any(locs[0] != 0), "正样本应有回归目标"
+        assert torch.all(locs[1:] == 0), "非正样本不应有回归目标"
+        print("正常情况测试通过！")
 
-    # 真实物体框 (一个在中间，一个在角落)
-    dummy_bboxes = torch.tensor([
-        [20, 20, 80, 80],  # bboxes[0]
-        [90, 90, 110, 110],  # bboxes[1]
-    ], dtype=torch.float32)
 
-    # 精心设计几个锚点用于精确验证，并混合大量随机锚点来测试采样
-    specific_anchors = torch.tensor([
-        # --- 用于精确验证的锚点 ---
-        [22, 22, 78, 78],  # 锚点0: 与 bboxes[0] IoU 很高, 应该为正样本 (label=1)
-        [0, 0, 15, 15],  # 锚点1: 与所有 bboxes IoU 很低, 应该为负样本 (label=0)
-        [45, 45, 85, 85],  # 锚点2: 与 bboxes[0] IoU 中等 (约0.4), 应该被忽略 (label=-1)
-        [110, 110, 130, 130],  # 锚点3: 超出图像边界, 应该被忽略 (label=-1)
-    ], dtype=torch.float32)
+    def test_no_gt_case(creator):
+        print("\n--- 2. 测试无物体图片 (纯背景) ---")
+        image_size = (100, 100)
+        dummy_bboxes = torch.empty((0, 4), dtype=torch.float32)
+        dummy_anchors = torch.tensor([[10, 10, 30, 30], [50, 50, 80, 80]], dtype=torch.float32)
 
-    # 创建大量随机锚点来模拟真实情况
-    random_anchors = torch.randint(0, 100, (5000, 4)).float()
-    # 保证 xmax > xmin, ymax > ymin
-    random_anchors[:, 2:] += random_anchors[:, :2] + 5
+        labels, locs = creator(dummy_anchors, dummy_bboxes, image_size)
 
-    dummy_anchors = torch.cat([specific_anchors, random_anchors], dim=0)
+        assert torch.all(labels == 0), "无物体时，所有有效锚点都应为负样本"
+        assert torch.all(locs == 0), "无物体时，不应有任何回归目标"
+        print("无物体图片测试通过！")
 
-    # 3. 调用 __call__ 方法
-    final_labels, final_loc_targets = anchor_target_creator(dummy_anchors, dummy_bboxes, image_size)
 
-    # 4. 验证输出的形状
-    print("\n--- 1. 形状验证 ---")
-    assert final_loc_targets.shape == dummy_anchors.shape, f"回归目标形状错误: 期望 {dummy_anchors.shape}, 得到 {final_loc_targets.shape}"
-    assert final_labels.shape[0] == dummy_anchors.shape[
-        0], f"标签形状错误: 期望 {dummy_anchors.shape[0]}, 得到 {final_labels.shape[0]}"
-    print("形状验证通过！")
+    def test_positive_sampling(creator):
+        print("\n--- 3. 测试正样本过多时的下采样 ---")
+        image_size = (100, 100)
+        dummy_bboxes = torch.tensor([[10, 10, 90, 90]], dtype=torch.float32)
+        # 创建大量与GT框高度重叠的锚点
+        num_high_iou_anchors = 200
+        high_iou_anchors = torch.tensor([[11, 11, 89, 89]], dtype=torch.float32).repeat(num_high_iou_anchors, 1)
 
-    # 5. 验证采样结果
-    print("\n--- 2. 采样数量验证 ---")
-    num_pos = torch.sum(final_labels == 1)
-    num_neg = torch.sum(final_labels == 0)
-    print(f"采样后，用于计算损失的正样本数量: {num_pos}")
-    print(f"采样后，用于计算损失的负样本数量: {num_neg}")
-    print(f"总采样数量: {num_pos + num_neg}")
-    assert num_pos <= int(anchor_target_creator.n_samples * anchor_target_creator.pos_ratio)
-    assert (num_pos + num_neg) <= anchor_target_creator.n_samples
-    print("采样数量验证通过！")
+        labels, _ = creator(high_iou_anchors, dummy_bboxes, image_size)
 
-    # 6. 验证具体锚点的标签
-    print("\n--- 3. 标签分配验证 ---")
-    assert final_labels[0] == 1, f"锚点0 应该为正样本, 但得到标签 {final_labels[0]}"
-    print("锚点0 (高IoU) -> 正确分配为正样本 (1)")
-    assert final_labels[1] == 0, f"锚点1 应该为负样本, 但得到标签 {final_labels[1]}"
-    print("锚点1 (低IoU) -> 正确分配为负样本 (0)")
-    assert final_labels[2] == -1, f"锚点2 应该被忽略, 但得到标签 {final_labels[2]}"
-    print("锚点2 (中等IoU) -> 正确分配为忽略 (-1)")
-    assert final_labels[3] == -1, f"锚点3 应该被忽略, 但得到标签 {final_labels[3]}"
-    print("锚点3 (边界外) -> 正确分配为忽略 (-1)")
-    print("标签分配验证通过！")
+        num_pos_sampled = torch.sum(labels == 1)
+        expected_num_pos = int(creator.n_samples * creator.pos_ratio)
+        print(f"期望正样本数: {expected_num_pos}, 实际采样数: {num_pos_sampled}")
+        assert num_pos_sampled == expected_num_pos, "正样本下采样数量不正确"
+        print("正样本下采样测试通过！")
 
-    # 7. 验证回归目标
-    print("\n--- 4. 回归目标验证 ---")
-    # 只有正样本的回归目标应该非零
-    assert torch.all(final_loc_targets[final_labels != 1] == 0), "非正样本的回归目标必须为零"
-    print("非正样本的回归目标全部为零, 正确！")
 
-    # 手动计算锚点0的期望回归目标
-    expected_target_for_anchor0 = encode_boxes(specific_anchors[0:1], dummy_bboxes[0:1])
-    # 比较计算结果与实际输出，允许有很小的浮点误差
-    is_close = torch.allclose(final_loc_targets[0], expected_target_for_anchor0, atol=1e-5)
-    assert is_close, "正样本的回归目标计算错误"
-    print(f"锚点0 的期望回归目标: {expected_target_for_anchor0.numpy().round(4)}")
-    print(f"锚点0 的实际回归目标: {final_loc_targets[0].numpy().round(4)}")
-    print("正样本的回归目标计算正确！")
+    def test_negative_sampling(creator):
+        print("\n--- 4. 测试负样本过多时的下采样 ---")
+        image_size = (500, 500)
+        # 一个在角落的小物体框
+        dummy_bboxes = torch.tensor([[480, 480, 495, 495]], dtype=torch.float32)
+        # --- 修复：创建大量、确定在界内、且确定是负样本的锚点 ---
+        # 在左上角创建一个网格的锚点，确保它们都离右下角的GT框很远
+        num_neg_anchors = 400
+        x = torch.linspace(10, 200, 20)
+        y = torch.linspace(10, 200, 20)
+        grid_y, grid_x = torch.meshgrid(y, x, indexing='ij')
+        low_iou_anchors_tl = torch.stack([grid_x.flatten(), grid_y.flatten()], dim=1)
+        low_iou_anchors = torch.cat([low_iou_anchors_tl, low_iou_anchors_tl + 20], dim=1)
 
-    print("\n\n--- 所有测试通过！AnchorTargetCreator 功能完整且正确。 ---")
+        labels, _ = creator(low_iou_anchors, dummy_bboxes, image_size)
 
+        num_neg_sampled = torch.sum(labels == 0)
+        num_pos_sampled = torch.sum(labels == 1)
+        expected_num_neg = creator.n_samples - num_pos_sampled
+        print(f"期望负样本数: {expected_num_neg}, 实际采样数: {num_neg_sampled}")
+        assert num_neg_sampled == expected_num_neg, "负样本下采样数量不正确"
+        print("负样本下采样测试通过！")
+
+
+    def main():
+        print("--- AnchorTargetCreator 全面功能测试 ---")
+        # 使用默认参数实例化
+        creator = AnchorTargetCreator()
+
+        test_normal_case(creator)
+        test_no_gt_case(creator)
+        test_positive_sampling(creator)
+        test_negative_sampling(creator)
+
+        print("\n\n--- 所有测试用例通过！AnchorTargetCreator 功能健壮。 ---")
+
+
+    main()

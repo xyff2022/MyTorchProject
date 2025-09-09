@@ -43,9 +43,9 @@ class ProposalTargetCreator:
 
                 Returns:
                     tuple: 包含三个张量:
-                    - roi (torch.Tensor): 采样后的 RoI，形状 [n_samples, 4]。
-                    - roi_locs (torch.Tensor): 采样后 RoI 的回归目标，形状 [n_samples, 4]。
-                    - roi_labels (torch.Tensor): 采样后 RoI 的类别标签，形状 [n_samples]。
+                        - roi (torch.Tensor): 采样后的 RoI，形状 [n_samples, 4]。
+                        - roi_locs (torch.Tensor): 采样后 RoI 的回归目标，形状 [n_samples, 4]。
+                        - roi_labels (torch.Tensor): 采样后 RoI 的类别标签，形状 [n_samples]。
         """
         # --- 步骤 1: 合并候选区域与真实物体框 ---
         # 真实物体框是 "完美" 的候选区域，将它们加入训练池

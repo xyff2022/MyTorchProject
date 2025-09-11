@@ -279,7 +279,7 @@ class DetectorHead(nn.Module):
 
                 final_boxes.append(bbox[final_index])
                 final_scores.append(score[final_index])
-                final_labels.append(torch.full_like(score[final_index], i, dtype=torch.int64))
+                final_labels.append(torch.full_like(score[final_index], i - 1, dtype=torch.int64))
 
             # --- 步骤 6: 整理单张图片的最终结果 ---
             if len(final_boxes) > 0:

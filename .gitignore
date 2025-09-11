@@ -14,3 +14,4 @@ logs/
 .vscode/
 
 resnet 参考.py
+/dataset/CheckVOCDatasetPlus.py

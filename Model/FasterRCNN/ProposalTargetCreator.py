@@ -47,6 +47,25 @@ class ProposalTargetCreator:
                         - roi_locs (torch.Tensor): 采样后 RoI 的回归目标，形状 [n_samples, 4]。
                         - roi_labels (torch.Tensor): 采样后 RoI 的类别标签，形状 [n_samples]。
         """
+
+        # *** 新增代码开始: 处理没有真实物体框的情况 ***
+        if bboxes.numel() == 0:
+            # 如果没有真实物体，所有提议都应被视为负样本（背景）
+            # 我们从中随机采样 self.n_samples 个作为训练样本
+            num_proposals = proposals.shape[0]
+            if num_proposals > self.n_samples:
+                indices = torch.randperm(num_proposals, device=proposals.device)[:self.n_samples]
+                sampled_rois = proposals[indices]
+            else:
+                sampled_rois = proposals
+
+            # 为这些负样本创建目标
+            # 标签全部为0（背景），回归目标全部为0
+            gt_roi_labels = torch.zeros(sampled_rois.shape[0], dtype=torch.long, device=proposals.device)
+            gt_roi_locs = torch.zeros_like(sampled_rois)
+            return sampled_rois, gt_roi_locs, gt_roi_labels
+        # *** 新增代码结束 ***
+
         # --- 步骤 1: 合并候选区域与真实物体框 ---
         # 真实物体框是 "完美" 的候选区域，将它们加入训练池
         candidate = torch.cat([proposals, bboxes], dim = 0)

@@ -99,23 +99,23 @@ class RegionProposalNetwork(nn.Module):
         if self.training:
             assert targets is not None, "In training mode, targets must be provided to RPN"
 
-        # --- 为批处理准备损失列表 ---
-        rpn_loc_losses, rpn_cls_losses = [], []
+            # --- 为批处理准备损失列表 ---
+            rpn_loc_losses, rpn_cls_losses = [], []
 
-        # --- 遍历批次中的每一项 ---
-        for i in range(B):
-            gt_bboxes = targets[i]["bboxes"]
+            # --- 遍历批次中的每一项 ---
+            for i in range(B):
+                gt_bboxes = targets[i]["boxes"]
 
-            # 为当前图片生成“标准答案”
-            final_labels, final_loc_targets = self.anchor_target_creator(anchors, gt_bboxes, image_size)
+                # 为当前图片生成“标准答案”
+                final_labels, final_loc_targets = self.anchor_target_creator(anchors, gt_bboxes, image_size)
 
-            # 为当前图片计算损失
-            # 注意我们这里取的是 rpn_locs[i] 和 rpn_scores[i]
-            rpn_cls_loss = Loss.rpn_cls_loss(rpn_scores[i], final_labels)
-            rpn_loc_loss = Loss.rpn_loc_loss(rpn_locs[i], final_loc_targets, final_labels)
+                # 为当前图片计算损失
+                # 注意我们这里取的是 rpn_locs[i] 和 rpn_scores[i]
+                rpn_cls_loss = Loss.rpn_cls_loss(rpn_scores[i], final_labels)
+                rpn_loc_loss = Loss.rpn_loc_loss(rpn_locs[i], final_loc_targets, final_labels)
 
-            rpn_loc_losses.append(rpn_loc_loss)
-            rpn_cls_losses.append(rpn_cls_loss)
+                rpn_loc_losses.append(rpn_loc_loss)
+                rpn_cls_losses.append(rpn_cls_loss)
 
             # --- 汇总整个批次的损失 ---
             # 将列表中的损失求和。除以批次大小B是为了得到平均损失，让学习率更稳定
@@ -130,32 +130,51 @@ class RegionProposalNetwork(nn.Module):
 
 # rpn.py 文件末尾的测试代码
 if __name__ == '__main__':
-    # 假设 backbone 输出的特征图
-    dummy_feature_map = torch.randn(1, 1024, 50, 50)
+    # --- 1. 定义通用测试参数 ---
+    dummy_feature_map = torch.randn(2, 1024, 50, 50) # Batch size = 2
+    dummy_anchors = torch.randn(22500, 4)
+    dummy_image_size = (800, 800)
+    dummy_targets = [
+        {'boxes': torch.tensor([[10, 10, 100, 100]], dtype=torch.float32)},
+        {'boxes': torch.empty((0, 4), dtype=torch.float32)}
+    ]
 
-    # RPN 的参数
-    in_channels = 1024
-    mid_channels = 512
-    num_anchors = 9
+    rpn = RegionProposalNetwork(in_channels=1024, mid_channels=512, num_anchors=9)
 
-    # 实例化 RPN
-    rpn = RegionProposalNetwork(in_channels, mid_channels, num_anchors)
+    # --- 2. 测试评估模式 (eval) ---
+    print("--- 正在测试 RPN 评估模式 (eval) ---")
+    rpn.eval() # 切换到评估模式
+    with torch.no_grad():
+        # 在评估模式下，不应传入 targets
+        rpn_locs, rpn_scores, rpn_losses = rpn(dummy_feature_map, dummy_anchors, dummy_image_size)
 
-    # 执行前向传播
-    rpn_locs, rpn_scores = rpn(dummy_feature_map)
-
-    # 打印和验证输出形状
-    print("--- 正在测试 RPN __init__ 和 forward 方法 ---")
-    print(f"输入特征图的形状: {dummy_feature_map.shape}")
     print(f"输出 rpn_locs 的形状: {rpn_locs.shape}")
     print(f"输出 rpn_scores 的形状: {rpn_scores.shape}")
+    print(f"返回的损失字典: {rpn_losses}")
 
-    expected_locs_shape = (1, 50 * 50 * 9, 4)
-    expected_scores_shape = (1, 50 * 50 * 9, 2)
+    # 验证形状和损失
+    expected_locs_shape = (2, 50 * 50 * 9, 4)
+    expected_scores_shape = (2, 50 * 50 * 9, 2)
+    assert rpn_locs.shape == expected_locs_shape, "评估模式 rpn_locs 形状不匹配!"
+    assert rpn_scores.shape == expected_scores_shape, "评估模式 rpn_scores 形状不匹配!"
+    assert len(rpn_losses) == 0, "评估模式下，损失字典应为空!"
+    print("评估模式测试通过！\n")
 
-    assert rpn_locs.shape == expected_locs_shape, "rpn_locs 形状不匹配!"
-    assert rpn_scores.shape == expected_scores_shape, "rpn_scores 形状不匹配!"
 
-    print("\nRPN 的 __init__ 和 forward 方法测试通过！")
+    # --- 3. 测试训练模式 (train) ---
+    print("--- 正在测试 RPN 训练模式 (train) ---")
+    rpn.train() # 切换回训练模式
+    # 在训练模式下，必须传入 targets
+    rpn_locs, rpn_scores, rpn_losses = rpn(dummy_feature_map, dummy_anchors, dummy_image_size, dummy_targets)
 
+    print(f"输出 rpn_locs 的形状: {rpn_locs.shape}")
+    print(f"输出 rpn_scores 的形状: {rpn_scores.shape}")
+    print(f"返回的损失字典: {rpn_losses}")
 
+    # 验证形状和损失
+    assert rpn_locs.shape == expected_locs_shape, "训练模式 rpn_locs 形状不匹配!"
+    assert rpn_scores.shape == expected_scores_shape, "训练模式 rpn_scores 形状不匹配!"
+    assert "rpn_cls_losses" in rpn_losses and "rpn_loc_losses" in rpn_losses, "训练模式下，应返回损失!"
+    print("训练模式测试通过！")
+
+    print("\n\n--- RPN 模块所有单元测试通过！ ---")

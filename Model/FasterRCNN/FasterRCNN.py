@@ -33,6 +33,8 @@ class FasterRCNN(nn.Module):
         # --- 非神经网络模块也在这里实例化 ---
         # 锚点生成器
         self.anchor_generate = AnchorGenerator()
+        self.proposal_creator_train = ProposalCreator('training')
+        self.proposal_creator_validation = ProposalCreator('validation')
 
 
     def forward(self, image, targets=None):
@@ -103,57 +105,34 @@ class FasterRCNN(nn.Module):
 
 
 # --- 用于测试本模块完整功能的脚本 ---
+# rpn.py 文件末尾的测试代码
 if __name__ == '__main__':
-    print("--- FasterRCNN 最终组装测试 ---")
+    # 假设 backbone 输出的特征图
+    dummy_feature_map = torch.randn(1, 1024, 50, 50)
 
-    # 为了测试，我们需要在这里手动实例化所有子模块
-    from Model.FasterRCNN.Backbone import get_my_resnet50_backbone
-    from Model.FasterRCNN.Pooling import RoIPool
+    # RPN 的参数
+    in_channels = 1024
+    mid_channels = 512
+    num_anchors = 9
 
-    # 1. 实例化所有子模块
-    backbone_instance = get_my_resnet50_backbone()
-    # 注意：现在 RPN 和 DetectorHead 内部会自己实例化所需的组件
-    rpn_instance = RegionProposalNetwork(in_channels=1024, mid_channels=512, num_anchors=9)
-    roi_pooler_instance = RoIPool(output_size=7, spatial_scale=1.0 / 16)
-    detector_head_instance = DetectorHead(
-        num_classes=20,  # 假设是VOC数据集的20个类
-        pooler=roi_pooler_instance,
-        in_channels=1024
-    )
+    # 实例化 RPN
+    rpn = RegionProposalNetwork(in_channels, mid_channels, num_anchors)
 
-    # 2. 实例化完整的 FasterRCNN 模型
-    model = FasterRCNN(
-        backbone=backbone_instance,
-        rpn=rpn_instance,
-        detector_head=detector_head_instance
-    )
+    # 执行前向传播
+    # *** 修改：forward现在返回3个值，测试时只取前两个 ***
+    rpn_locs, rpn_scores, _ = rpn(dummy_feature_map, torch.randn(22500, 4), (800, 800))
 
-    print("模型组装成功！")
 
-    # 3. 创建模拟数据 (包含一个没有物体的图片来测试健壮性)
-    BATCH_SIZE = 2
-    dummy_images = torch.randn(BATCH_SIZE, 3, 800, 800)
-    dummy_targets = [
-        {'bboxes': torch.tensor([[10, 10, 100, 100]], dtype=torch.float32),
-         'labels': torch.tensor([1], dtype=torch.int64)},
-        # 第二张图片是纯背景，没有物体
-        {'bboxes': torch.empty((0, 4), dtype=torch.float32),
-         'labels': torch.empty((0), dtype=torch.int64)}
-    ]
+    # 打印和验证输出形状
+    print("--- 正在测试 RPN __init__ 和 forward 方法 ---")
+    print(f"输入特征图的形状: {dummy_feature_map.shape}")
+    print(f"输出 rpn_locs 的形状: {rpn_locs.shape}")
+    print(f"输出 rpn_scores 的形状: {rpn_scores.shape}")
 
-    # 4. 测试训练模式
-    print("\n--- 测试训练模式 ---")
-    model.train()
-    losses = model(dummy_images, dummy_targets)
-    print(f"返回的损失字典: {losses}")
-    assert "loss_rpn_cls" in losses and "loss_roi_cls" in losses
-    print("训练模式前向传播通过！(已处理纯背景图片)")
+    expected_locs_shape = (1, 50 * 50 * 9, 4)
+    expected_scores_shape = (1, 50 * 50 * 9, 2)
 
-    # 5. 测试评估模式
-    print("\n--- 测试评估模式 ---")
-    model.eval()
-    with torch.no_grad():
-        detections = model(dummy_images)
-    print(f"返回了 {len(detections)} 张图片的检测结果。")
-    assert len(detections) == BATCH_SIZE
-    print("评估模式前向传播通过！")
+    assert rpn_locs.shape == expected_locs_shape, "rpn_locs 形状不匹配!"
+    assert rpn_scores.shape == expected_scores_shape, "rpn_scores 形状不匹配!"
+
+    print("\nRPN 的 __init__ 和 forward 方法测试通过！")

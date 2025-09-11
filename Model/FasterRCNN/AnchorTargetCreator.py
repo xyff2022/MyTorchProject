@@ -33,6 +33,10 @@ def encode_boxes(anchors, target):
     anchors_w = torch.clamp(anchors_w, min = eps)
     anchors_h = torch.clamp(anchors_h, min = eps)
 
+    # *** 新增代码: 同样处理 target 的宽高，防止 log(0) ***
+    target_w = torch.clamp(target_w, min=eps)
+    target_h = torch.clamp(target_h, min=eps)
+
     dx = (target_center_x - anchors_center_x) / anchors_w
     dy = (target_center_y - anchors_center_y) / anchors_h
     dw = torch.log(target_w / anchors_w)
@@ -131,9 +135,20 @@ class AnchorTargetCreator:
         )[0]
         valid_anchors = anchors[inside]
 
+        # *** 修改开始: 增加对 valid_anchors 是否为空的判断 ***
+        # 如果所有锚点都在图像外部，则直接返回忽略标签和零回归目标
+        if valid_anchors.numel() == 0:
+            final_labels = torch.full((len(anchors),), -1, dtype=torch.long)
+            final_loc_targets = torch.zeros_like(anchors)
+            return final_labels, final_loc_targets
+        # *** 修改结束 ***
+
         # 2. 初始化所有有效锚点的标签为 -1
         labels = torch.full((len(valid_anchors),), -1, dtype=torch.long)
         # len()返回第一个维度的长度
+
+        print(target)
+        print(valid_anchors)
 
         if target.numel() == 0:
             labels.fill_(0)

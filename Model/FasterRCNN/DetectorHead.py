@@ -96,7 +96,7 @@ class DetectorHead(nn.Module):
             for i in range(len(proposals)):
                 # 为当前图片进行采样
                 get_image_proposals = proposals[i]
-                get_image_bboxes = targets[i]["bboxes"]
+                get_image_bboxes = targets[i]["boxes"]
                 get_image_labels = targets[i]["labels"]
 
                 # proposal_target_creator 返回采样后的 RoI 和它们的目标
@@ -324,9 +324,9 @@ if __name__ == '__main__':
         torch.rand(200, 4) * 800
     ]
     dummy_targets = [
-        {'bboxes': torch.tensor([[10, 10, 100, 100], [200, 200, 350, 350]], dtype=torch.float32),
+        {'boxes': torch.tensor([[10, 10, 100, 100], [200, 200, 350, 350]], dtype=torch.float32),
          'labels': torch.tensor([1, 5], dtype=torch.int64)},
-        {'bboxes': torch.tensor([[50, 50, 150, 150]], dtype=torch.float32),
+        {'boxes': torch.tensor([[50, 50, 150, 150]], dtype=torch.float32),
          'labels': torch.tensor([8], dtype=torch.int64)}
     ]
 

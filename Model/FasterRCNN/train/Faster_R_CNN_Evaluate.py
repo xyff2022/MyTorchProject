@@ -12,12 +12,11 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # --- 导入你项目中的模块 ---
-from Model.FasterRCNN.FasterRCNN import FasterRCNN
+from Model.FasterRCNN.network_files.FasterRCNN import FasterRCNN
 from dataset.VOCDatasetPlus import VocDataset
-from Model.FasterRCNN.Backbone import get_my_resnet50_backbone
-from Model.FasterRCNN.RegionProposalNetwork import RegionProposalNetwork
-from Model.FasterRCNN.Pooling import RoIPool
-from Model.FasterRCNN.DetectorHead import DetectorHead
+from Model.FasterRCNN.network_files.RegionProposalNetwork import RegionProposalNetwork
+from Model.FasterRCNN.network_files.Pooling import RoIPool
+from Model.FasterRCNN.network_files.DetectorHead import DetectorHead
 
 # --- 1. 配置区域 ---
 

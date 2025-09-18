@@ -13,5 +13,5 @@ logs/
 .idea/
 .vscode/
 
-resnet 参考.py
-/dataset/CheckVOCDatasetPlus.py
+#忽略kaggle
+/.kaggle/

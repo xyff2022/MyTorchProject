@@ -2,7 +2,7 @@ import torch
 from torch import optim
 from torch.nn import Module, Sequential, Conv2d
 from torch.nn import  MaxPool2d, LeakyReLU, Flatten, Linear, Dropout, MSELoss
-from utils.Intersection_over_Union import intersection_over_union
+from Model.YOLO_v1.utils.Intersection_over_Union import intersection_over_union
 
 
 class YOLOv1(Module):
@@ -127,10 +127,10 @@ class YoloLoss(Module):
         """
             初始化YOLOv1损失函数.
 
-            参数:
-                S (int): 网格尺寸 (通常为7).
-                B (int): 每个网格单元预测的边界框数量 (通常为2).
-                C (int): 类别数 (PASCAL VOC为20).
+            Args:
+                s (int): 网格尺寸 (通常为7).
+                b(int): 每个网格单元预测的边界框数量 (通常为2).
+                c (int): 类别数 (PASCAL VOC为20).
                 lambda_coord (float): 定位损失的权重.
                 lambda_no_object (float): 不包含物体的置信度损失的权重.
         """
@@ -147,10 +147,13 @@ class YoloLoss(Module):
         """
             计算损失.
 
-            参数:
-                predictions (torch.Tensor): 模型的输出张量, 形状为 (N, S*S*(C+B*5)).
-                target (torch.Tensor): 真实的标签张量, 形状为 (N, S, S, C+5).
-            注意: target每个单元格只包含一个真实框的信息(这是v1的假设),因此c+5就是c,conf,x,y,w,h
+            Args:
+                prediction (torch.Tensor): 模型的输出张量, 形状为 (N, S*S*(C+B*5)).
+                target (torch.Tensor): 真实的标签张量, 形状为 (N, S, S, C+5+5).
+                    target每个单元格只包含一个真实框的信息(这是v1的假设),因此c+5就是c,conf,x,y,w,h,0,0,0,0,0
+
+            Returns:
+                total_loss:损失和
         """
 
         # --- 步骤 1: 重塑预测张量 ---
@@ -303,6 +306,67 @@ if __name__ == '__main__':
         print("请检查您的 模型 实现是否有误。")
 
 
+    def test_loss_function_ideal_case():
+        """
+        单元测试函数，专门用于验证YoloLoss函数在理想情况下的表现。
+        理想情况：构造一个完美的prediction，使其与target完全匹配。
+        预期结果：计算出的总损失应为0。
+        """
+        print("\n--- 开始进行损失函数单元测试（理想情况） ---")
+
+        # 1. 初始化损失函数
+        loss_fn = YoloLoss(s=7, b=2, c=20)
+
+        # 2. 创建一个基准 target 张量
+        # 我们假设批次大小为1 (N=1)，在 (3, 3) 的网格单元有一个物体。
+        # target 格式: [类别(20), 坐标(4), 置信度(1)]
+        target = torch.zeros(1, 7, 7, 25)
+
+        # 设置类别 (假设是第2类，索引为1)
+        target[0, 3, 3, 1] = 1
+        # 设置坐标 (x,y,w,h)
+        target[0, 3, 3, 20:24] = torch.tensor([0.5, 0.5, 0.2, 0.2])
+        # 设置置信度 (有物体，为1)
+        target[0, 3, 3, 24] = 1
+
+        print("基准 target 已创建。")
+
+        # 3. 根据 target 构建一个完美的 prediction 张量
+        # prediction 格式: [类别(20), 坐标1(4), 置信度1(1), 坐标2(4), 置信度2(1)]
+        prediction = torch.zeros(1, 7, 7, 30)
+
+        # a. 对于有物体的单元格 (3, 3):
+        #   - 复制类别信息
+        prediction[0, 3, 3, 0:20] = target[0, 3, 3, 0:20]
+        #   - 让第一个预测框 (box1) 完全等于 target 的 box
+        prediction[0, 3, 3, 20:24] = target[0, 3, 3, 20:24]
+        #   - 让第一个预测框的置信度 (conf1) 等于 target 的置信度 (即1)
+        #     由于IoU(box1, target_box)会是1，而IoU(box2, target_box)是0，
+        #     所以box1会被选为“负责”的预测框。
+        prediction[0, 3, 3, 24] = target[0, 3, 3, 24]
+
+        # b. 对于所有没有物体的单元格:
+        #   - prediction 张量已经用0初始化，所以所有位置的两个置信度(conf1, conf2)都为0。
+        #   - 这正好满足了“无物体时置信度损失为0”的条件。
+
+        print("完美匹配的 prediction 已根据 target 创建。")
+
+        # 4. 计算损失
+        # 将 prediction 张量从 (N,S,S,30) 展平为 (N, S*S*30) 以模拟模型输出
+        prediction_flat = torch.flatten(prediction, start_dim=1)
+
+        total_loss = loss_fn(prediction_flat, target)
+
+        # 5. 验证结果
+        print(f"\n计算出的总损失值: {total_loss.item()}")
+
+        # 使用断言来自动检查结果是否正确
+        # 由于浮点数计算可能存在微小误差，我们检查损失是否小于一个很小的值
+        assert total_loss.item() < 1e-6, "测试失败！理想情况下的损失不为0！"
+
+        print("测试通过！在理想情况下，损失函数表现符合预期，返回值为0。")
+        print("--- 损失函数单元测试结束 ---")
+
     def sanity_check(model, loss_fn, optimizer):
         print("--- 开始进行单元测试 ---")
 
@@ -350,7 +414,9 @@ if __name__ == '__main__':
     print("--- 正在运行 YoloV1 单元测试 ---")
 
     try:
-        sanity_check(yolo, loss_fn, optimizer)
+        # sanity_check(yolo, loss_fn, optimizer)
+        # 在最后调用新的验证函数
+        test_loss_function_ideal_case()
 
     except Exception as e:
         print(f"\nYoloV1 单元测试失败，错误信息: {e}")

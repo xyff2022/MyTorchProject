@@ -3,9 +3,9 @@ from torch import nn
 from torch.nn import Sequential, Linear, ReLU
 from torchvision.ops import nms
 
-from Model.FasterRCNN import Loss
-from Model.FasterRCNN.Pooling import RoIPool
-from Model.FasterRCNN.ProposalTargetCreator import ProposalTargetCreator
+from Model.FasterRCNN.network_files import Loss
+from Model.FasterRCNN.network_files.Pooling import RoIPool
+from Model.FasterRCNN.network_files.ProposalTargetCreator import ProposalTargetCreator
 
 
 class DetectorHead(nn.Module):

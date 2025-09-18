@@ -2,9 +2,9 @@ import torch
 from torch import nn
 from torch.nn import Conv2d, ReLU
 
-from Model.FasterRCNN import Loss
-from Model.FasterRCNN.AnchorTargetCreator import AnchorTargetCreator
-from Model.FasterRCNN.ProposalCreator import ProposalCreator
+from Model.FasterRCNN.network_files import Loss
+from Model.FasterRCNN.network_files.AnchorTargetCreator import AnchorTargetCreator
+from Model.FasterRCNN.network_files.ProposalCreator import ProposalCreator
 
 
 class RegionProposalNetwork(nn.Module):

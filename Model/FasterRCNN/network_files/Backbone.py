@@ -1,6 +1,6 @@
 import torch
 
-from Model.ResNet_Pro import ResNet50, BottleneckResidualBlock
+from Model.ResNet.network_files.ResNet_Pro import ResNet50, BottleneckResidualBlock
 
 
 class ResNet50Backbone(ResNet50):

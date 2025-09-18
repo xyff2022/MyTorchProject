@@ -5,7 +5,7 @@ import cv2  # 使用 OpenCV 读取图片以配合 albumentations
 from torch.utils.data import Dataset
 
 
-class VocDataset(Dataset):
+class VocDataset2YOLO(Dataset):
     def __init__(self, image_folder, label_folder, classes_list, transform=None):
         self.image_folder = image_folder
         self.label_folder = label_folder

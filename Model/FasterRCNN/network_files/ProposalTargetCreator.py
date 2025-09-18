@@ -1,6 +1,6 @@
 import torch
 
-from Model.FasterRCNN.AnchorTargetCreator import calculate_iou, encode_boxes
+from Model.FasterRCNN.network_files.AnchorTargetCreator import calculate_iou, encode_boxes
 
 
 class ProposalTargetCreator:

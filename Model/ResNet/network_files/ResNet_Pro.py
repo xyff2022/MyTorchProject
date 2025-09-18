@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from torch.nn import Module, Conv2d, Sequential, AvgPool2d, MaxPool2d
 
-from utils.utils import normalize_to_tuple
+from Model.ResNet.utils.utils import normalize_to_tuple
 
 
 # def get_padding(kernel_size: int,stride: int, dilation: int = 1):

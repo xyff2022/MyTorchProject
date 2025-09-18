@@ -1,15 +1,11 @@
 import torch
 from torch import nn
 
-from Model.FasterRCNN.AnchorTargetCreator import AnchorTargetCreator
-from Model.FasterRCNN.Anchors import AnchorGenerator
-from Model.FasterRCNN.Backbone import ResNet50Backbone
-from Model.FasterRCNN.DetectorHead import DetectorHead
-from Model.FasterRCNN.Pooling import RoIPool
-from Model.FasterRCNN.ProposalCreator import ProposalCreator
-from Model.FasterRCNN.ProposalTargetCreator import ProposalTargetCreator
-from Model.FasterRCNN.RegionProposalNetwork import RegionProposalNetwork
-from Model.ResNet_Pro import BottleneckResidualBlock
+from Model.FasterRCNN.network_files.Anchors import AnchorGenerator
+from Model.FasterRCNN.network_files.Backbone import ResNet50Backbone
+from Model.FasterRCNN.network_files.DetectorHead import DetectorHead
+from Model.FasterRCNN.network_files.ProposalCreator import ProposalCreator
+from Model.FasterRCNN.network_files.RegionProposalNetwork import RegionProposalNetwork
 
 
 class FasterRCNN(nn.Module):

@@ -19,8 +19,8 @@ class BasicConv(Module):
 class ResidualBlock(Module):
     def __init__(self, in_channel):
         super().__init__()
-        self.conv1 = Conv2d(in_channel, in_channel//2, 1)
-        self.conv2 = Conv2d(in_channel//2, in_channel, 3)
+        self.conv1 = BasicConv(in_channel, in_channel//2, 1)
+        self.conv2 = BasicConv(in_channel//2, in_channel, 3)
 
     def forward(self, x):
         residual = x
@@ -46,8 +46,9 @@ class DarknetBody(Module):
         layers = []
         layers.append(BasicConv(in_channel, out_channel, 3, 2))
 
+        # 2. 添加指定数量的残差块
         for _ in range(num_block):
-            layers.append(out_channel)
+            layers.append(ResidualBlock(out_channel))
         return Sequential(*layers)
 
     def forward(self, x):

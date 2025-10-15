@@ -132,7 +132,7 @@ def decode_targets(predictions, targets, anchors, anchor_masks, strides, anchor_
         if number_targets:
             # --- 核心匹配逻辑 ---
             # 1. 计算targets和current_anchor_size的宽高比例
-            r = targets[:,:,4:6]/current_anchor_size[:,None]
+            r = t[:,:,4:6]/current_anchor_size[:,None]
             # targets[:, :, 4:6] 形状[3, number_targets, 2]，current_anchor_size[3,2],使用None在第0维后加入一维
             # r[3,number_targets,2]
             # 2. 使用传入的anchor_t作为阈值进行筛选
@@ -292,8 +292,8 @@ def compute_ciou_loss(predictions,
 
     # =============================== 关键改动: 应用ultralytics的权重策略 ===============================
     # 动态调整obj_gain和cls_gain
-    obj_gain *= (image_size / 320) ** 2
-    cls_gain *= num_classes / 80
+    # obj_gain *= (image_size / 320) ** 2
+    # cls_gain *= num_classes / 80
 
 
 
@@ -303,28 +303,5 @@ def compute_ciou_loss(predictions,
     cls_loss *= cls_gain
 
     return {"box_loss": box_loss, "obj_loss": obj_loss, "class_loss": cls_loss}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

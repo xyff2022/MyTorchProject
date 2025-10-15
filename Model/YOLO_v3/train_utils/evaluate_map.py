@@ -77,8 +77,8 @@ def scale_resize_coords(resized_shape, box, original_shape):
     box[..., [0, 2]] = box[..., [0, 2]] / gain_w
     box[..., [1, 3]] = box[..., [1, 3]] / gain_h
 
-    box[..., [0, 2]] = box[..., [0, 2]].clamp(0, resized_shape[1])  # x1, x2
-    box[..., [1, 3]] = box[..., [1, 3]].clamp(0, resized_shape[0])  # y1, y2
+    box[..., [0, 2]] = box[..., [0, 2]].clamp(0, original_shape[1])  # x1, x2
+    box[..., [1, 3]] = box[..., [1, 3]].clamp(0, original_shape[0])  # y1, y2
     return box
 
 

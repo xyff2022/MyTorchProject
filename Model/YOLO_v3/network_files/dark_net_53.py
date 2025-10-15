@@ -32,7 +32,7 @@ class ResidualBlock(Module):
 class DarknetBody(Module):
     def __init__(self, in_channel = 3):
         super().__init__()
-        self.conv1 = Conv2d(in_channel, 32, 3, 1)
+        self.conv1 = BasicConv(in_channel, 32, 3, 1)
         # 定义五个大的层块，包含下采样和残差块
         # (通道数, 残差块数量)
         self.layer1 = self._make_layer(32, 64, 1)

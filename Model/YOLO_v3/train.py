@@ -59,7 +59,7 @@ anchor_t = 4.0
 # --- 训练超参数 ---
 
 batch_size = 80
-lr = 0.001
+
 image_size = 512
 NUM_EPOCHS=300
 num_classes = 20

@@ -241,7 +241,7 @@ def compute_ciou_loss(predictions,
 
     # 遍历三个预测层 (i 是索引 0, 1, 2)
     for i, prediction in enumerate(predictions):
-        # stacked_indices 是一个 [4, N] 的张量
+        # stacked_indices 是一个 [4, number_true_box] 的张量
         stacked_indices = indices[i]
 
         # 创建一个全零的置信度目标张量
@@ -249,6 +249,7 @@ def compute_ciou_loss(predictions,
 
         # 获取当前层正样本的数量
         number_pos_targets = stacked_indices.shape[1]
+        # stacked_indices.shape [number_true_box,number_true_box,number_true_box,number_true_box]
 
         if number_pos_targets:
             # 使用索引从预测张量pi中提取出所有正样本的预测
@@ -290,10 +291,7 @@ def compute_ciou_loss(predictions,
 
         obj_loss += BCEobj(prediction[..., 4], tobj) *obj_balance[i]
 
-    # =============================== 关键改动: 应用ultralytics的权重策略 ===============================
-    # 动态调整obj_gain和cls_gain
-    # obj_gain *= (image_size / 320) ** 2
-    # cls_gain *= num_classes / 80
+
 
 
 

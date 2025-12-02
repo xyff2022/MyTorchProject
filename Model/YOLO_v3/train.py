@@ -301,7 +301,7 @@ def main():
 
     val_dataset = YOLOv3Dataset(val_img_root, val_label_root)
 
-    val_loader = DataLoader(val_dataset, batch_size, shuffle=True,
+    val_loader = DataLoader(val_dataset, batch_size, shuffle=False,
                               collate_fn=YOLOv3Dataset.collate_fn
                               )
     # --- 【新增】初始化mAP计算器和最佳指标 ---
@@ -339,7 +339,7 @@ def main():
         print(f"最新 checkpoint 已保存至 {save_dir / 'last.pt'}")
 
         # 2. 如果当前 mAP@.50 是历史最佳，则单独保存一份 best.pt
-        if map50 > best_map50:
+        if map50 > best_map50  :
             best_map50 = map50
             torch.save(model.state_dict(), save_dir / 'best.pt')
             print(f"*** 发现新的最佳模型 (mAP@.50: {best_map50:.4f})! 已保存至 {save_dir / 'best.pt'} ***")

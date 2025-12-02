@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torchvision.datasets
 
@@ -30,7 +31,13 @@ class Model01(nn.Module):
 
 
 if __name__ == '__main__':
-    model01 = Model01()
+
+
+
+
+    device =  "cuda" if torch.cuda.is_available() else "cpu"
+    model01 = Model01().to(device)
+    print(device)
 
     # loss = nn.L1Loss()
     # result = loss(outputs, targets)
@@ -42,14 +49,17 @@ if __name__ == '__main__':
 
     loss = nn.CrossEntropyLoss()
 
+
     for data in dataloader:
         images, targets = data
+        images = images.to(device)
+        targets = targets.to(device)
         outputs = model01(images)
         result = loss(outputs, targets)
         # 反向传播
         result.backward()
         # 优化器
-        print(result)
+
 
 
 

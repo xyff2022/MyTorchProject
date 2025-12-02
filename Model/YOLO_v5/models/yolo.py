@@ -2,9 +2,10 @@ import math
 
 import torch
 import torch.nn
-from torch.nn import Module,Conv2d,BatchNorm2d,SiLU,Identity,Sequential,MaxPool2d,Upsample,ModuleList
+from torch.nn import Module, Conv2d, BatchNorm2d, SiLU, Identity, Sequential, MaxPool2d, Upsample, ModuleList
 
 from .common import Conv, Bottleneck, C3, SPP, Concat
+
 
 # =====================================================================================
 # Part 2: 主模型
@@ -16,7 +17,8 @@ class Detect(Module):
     YOLOv5的检测头，用于对三个不同尺度的特征图进行最终预测。
     """
     stride = None  # 步长列表，会在YOLOv5类中动态设置
-    def __init__(self, number_classes = 20, anchors = (), channels = ()):
+
+    def __init__(self, number_classes=20, anchors=(), channels=()):
         # number_classes: 类别数
         # anchors: 锚框列表
         # channels: 三个检测头输入的通道数列表
@@ -27,28 +29,25 @@ class Detect(Module):
 
         self.number_anchor = len(anchors)
 
-
         self.anchors = anchors
-
 
         self.m = ModuleList(Conv2d(channel, self.number_out * self.number_detect, 1) for channel in channels)
 
     def forward(self, x):
         # x 是一个列表，包含三个检测头的输入特征图 [P3, P4, P5]
-        for i in range (self.number_detect):
+        for i in range(self.number_detect):
             x[i] = self.m[i](x[i])
             batch_size, _, height, width = x[i].shape
-            print(x[i].shape)
-            x[i] = x[i].view(batch_size, self.number_detect, self.number_out, height, width).permute(0, 1, 3, 4, 2).contiguous()
+
+            x[i] = x[i].view(batch_size, self.number_detect, self.number_out, height, width).permute(0, 1, 3, 4,
+                                                                                                     2).contiguous()
 
         # return x
         return x[0], x[1], x[2]
 
 
-
-
 class YOLOv5(Module):
-    def __init__(self, number_classes =20, depth_multiple = 0.33, width_multiple = 0.50,
+    def __init__(self, number_classes=20, depth_multiple=0.33, width_multiple=0.50,
                  anchors_config=None):
         super().__init__()
 
@@ -59,7 +58,7 @@ class YOLOv5(Module):
                 [12, 16], [19, 36], [40, 28],
                 [36, 75], [76, 55], [72, 146],
                 [142, 110], [192, 243], [459, 401]
-            ], dtype = torch.float32, device = "cuda" if torch.cuda.is_available() else "cpu")
+            ], dtype=torch.float32, device="cuda" if torch.cuda.is_available() else "cpu")
         self.anchor_config = anchors_config
         self.number_classes = number_classes
         self.depth_multiple = depth_multiple
@@ -83,51 +82,51 @@ class YOLOv5(Module):
 
         self.p2 = Conv(get_width(64), get_width(128), 3, 2, 1)
 
-        self.c3_1_1 = C3(get_width(128), get_width(128), n = get_depth(3))
+        self.c3_1_1 = C3(get_width(128), get_width(128), n=get_depth(3))
 
         self.p3 = Conv(get_width(128), get_width(256), 3, 2, 1)
 
-        self.c3_1_2 = C3(get_width(256), get_width(256), n = get_depth(6))
+        self.c3_1_2 = C3(get_width(256), get_width(256), n=get_depth(6))
 
         self.p4 = Conv(get_width(256), get_width(512), 3, 2, 1)
 
-        self.c3_1_3 = C3(get_width(512), get_width(512), n = get_depth(9))
+        self.c3_1_3 = C3(get_width(512), get_width(512), n=get_depth(9))
 
         self.p5 = Conv(get_width(512), get_width(1024), 3, 2, 1)
 
-        self.c3_1_4 = C3(get_width(1024), get_width(1024), n = get_depth(3))
+        self.c3_1_4 = C3(get_width(1024), get_width(1024), n=get_depth(3))
 
-        self.spp = SPP(get_width(1024), get_width(1024), kernel_size = 5)
+        self.spp = SPP(get_width(1024), get_width(1024), kernel_size=5)
 
         # --- 4. Neck & Head (颈部和头部) ---
         # Neck部分采用FPN+PAN的结构，融合Backbone不同层级的特征，以增强对不同尺寸物体的检测能力。
         self.p6 = Conv(get_width(1024), get_width(512), 1, 1, 0)
 
-        self.up1 = Upsample(scale_factor = 2, mode = "nearest")
+        self.up1 = Upsample(scale_factor=2, mode="nearest")
 
-        self.concat_1 = Concat(dimension = 1)
+        self.concat_1 = Concat(dimension=1)
 
-        self.c3_2_1 = C3(get_width(512) + get_width(512), get_width(512), n = get_depth(3), shortcut = False)
+        self.c3_2_1 = C3(get_width(512) + get_width(512), get_width(512), n=get_depth(3), shortcut=False)
 
         self.p7 = Conv(get_width(512), get_width(256), 1, 1, 0)
 
-        self.up2 = Upsample(scale_factor = 2, mode = "nearest")
+        self.up2 = Upsample(scale_factor=2, mode="nearest")
 
-        self.concat_2 = Concat(dimension = 1)
+        self.concat_2 = Concat(dimension=1)
 
-        self.c3_2_2 = C3(get_width(256) + get_width(256), get_width(256), n = get_depth(3), shortcut = False)
+        self.c3_2_2 = C3(get_width(256) + get_width(256), get_width(256), n=get_depth(3), shortcut=False)
 
         self.p8 = Conv(get_width(256), get_width(256), 3, 2, 1)
 
-        self.concat_3 = Concat(dimension = 1)
+        self.concat_3 = Concat(dimension=1)
 
-        self.c3_2_3 = C3(get_width(256) + get_width(256), get_width(512), n = get_depth(3), shortcut = False)
+        self.c3_2_3 = C3(get_width(256) + get_width(256), get_width(512), n=get_depth(3), shortcut=False)
 
         self.p9 = Conv(get_width(512), get_width(512), 3, 2, 1)
 
-        self.concat_4 = Concat(dimension = 1)
+        self.concat_4 = Concat(dimension=1)
 
-        self.c3_2_4 = C3(get_width(512) + get_width(512), get_width(1024), n = get_depth(3), shortcut = False)
+        self.c3_2_4 = C3(get_width(512) + get_width(512), get_width(1024), n=get_depth(3), shortcut=False)
 
         # --- 5. Detect Head (检测头) ---
         detect_channels = [get_width(256), get_width(512), get_width(1024)]

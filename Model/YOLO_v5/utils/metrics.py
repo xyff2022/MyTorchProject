@@ -8,8 +8,6 @@ from torchvision.ops import nms
 from tqdm import tqdm
 
 
-
-
 def xywh2xyxy_torch(x):
     """
     (Torch version) 将中心点格式 [x_center, y_center, w, h]
@@ -58,7 +56,6 @@ def xywhn2xyxy_torch(x, w=640, h=640):
         y (Tensor): [N, 4] 格式的 Bounding boxes (xyxy)
     """
 
-
     # 1. 创建一个和输入 x 形状相同、值全为 0 的张量 y
     y = torch.zeros_like(x, device=x.device)
 
@@ -78,6 +75,7 @@ def xywhn2xyxy_torch(x, w=640, h=640):
 
     # 6. 返回结果
     return y
+
 
 # ==============================================================================
 # 核心辅助函数 (解码, NMS, 坐标变换)
@@ -100,10 +98,9 @@ def decode_outputs(predictions, anchors_all, num_classes, anchor_masks, strides)
     device = predictions[0].device
     decoded_predictions = []
 
-    for i,prediction in enumerate(predictions):
-        batch_size,num_anchors,  grid_h,grid_w, _ = prediction.shape
+    for i, prediction in enumerate(predictions):
+        batch_size, _, grid_h, grid_w, _ = prediction.shape
         stride = strides[i]
-
 
         # Grid offsets
         grid_x, grid_y = torch.meshgrid(torch.arange(grid_w, device=device), torch.arange(grid_h, device=device),
@@ -111,8 +108,7 @@ def decode_outputs(predictions, anchors_all, num_classes, anchor_masks, strides)
         grid = torch.stack((grid_x, grid_y), 2).view(1, 1, grid_h, grid_w, 2).float()
 
         anchor_for_layer = anchors_all[anchor_masks[i]]
-        anchor_wh = anchor_for_layer.view(1, len(anchor_masks[i]),1,1,2)
-
+        anchor_wh = anchor_for_layer.view(1, len(anchor_masks[i]), 1, 1, 2)
 
         # 复制-份 prediction，因为我们将进行 in-place (原地) 操作
         p = prediction.clone()
@@ -165,21 +161,31 @@ def non_max_suppression(predictions, conf_threshold=0.25, iou_threshold=0.45, ma
         # .nonzero() 会扫描这个 [25200, 20] 的 True/False 表，找出所有值为 True 的格子的“坐标”
         # T后，i拿到所有框的索引，j拿到所有类别的索引
         # j现在表示类别
-        i, j = (box_score > conf_threshold).nonzero(as_tuple = False).T
+        i, j = (box_score > conf_threshold).nonzero(as_tuple=False).T
+
+        M = i.shape[0]  # 候选框总数
+        NMS_CANDIDATE_LIMIT = 50000  # 限制 NMS 最多处理 50k 个候选框
+        if M > NMS_CANDIDATE_LIMIT:
+            # 仅保留得分最高的 top-k 个候选框
+            scores = box_score[i, j]  # 获取这 M 个框的实际分数
+            _, topk_indices = torch.topk(scores, k=NMS_CANDIDATE_LIMIT)
+
+            # 用 top-k 的索引来更新 i 和 j
+            i = i[topk_indices]
+            j = j[topk_indices]
 
         # 3. 组合成 [M, 6] 的格式 (M 是找到的组合总数)
         # 以上述例子为例
         # 转换所有被选中的box的格式，现在box 是 xyxy 格式
         box = xywh2xyxy(prediction[i, :4])
         final_prediction = torch.cat((
-            box,      # 拿出框 100 的 xywh
+            box,  # 拿出框 100 的 xywh
             box_score[i, j, None],  # 拿出框 100 的 相乘后的conf (分别是 0.9 和 0.8)
-            j[:, None].float()      # 拿出类别 (分别是 0 和 4)
-        ), dim = 1)
+            j[:, None].float()  # 拿出类别 (分别是 0 和 4)
+        ), dim=1)
 
         if not final_prediction.shape[0]:
             continue
-
 
         # 4. [!!!] 核心修改 (v3 逻辑): "Batched NMS" (按类别 NMS)
         # C 是一个基于类别 ID 的巨大偏移量
@@ -202,8 +208,6 @@ def non_max_suppression(predictions, conf_threshold=0.25, iou_threshold=0.45, ma
         out_put[idx] = final_prediction
 
     return out_put
-
-
 
 
 def xywh2xyxy(x):

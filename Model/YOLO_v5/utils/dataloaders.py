@@ -15,8 +15,9 @@ PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'
 
 # (新增) 定义线程和分布式训练相关的常量
 NUM_THREADS = min(6, max(1, os.cpu_count() - 1))  # 线程数
-LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))     # DDP 进程 rank, -1 表示非 DDP
-TQDM_BAR_FORMAT = '{l_bar}{bar:10}{r_bar}'   # tqdm 进度条格式
+LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # DDP 进程 rank, -1 表示非 DDP
+TQDM_BAR_FORMAT = '{l_bar}{bar:10}{r_bar}'  # tqdm 进度条格式
+
 
 def create_dataloader(path,
                       img_size,
@@ -85,6 +86,7 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+
 # =============================== 主类: YOLOv3Dataset ===============================
 
 class LoadImagesAndLabels(Dataset):
@@ -101,8 +103,8 @@ class LoadImagesAndLabels(Dataset):
                  cache_images_in_ram=False,
                  stride=32,
                  pad=0.0,
-                 mosaic_random = 1.0,
-                 mixup_random = 0.1):
+                 mosaic_random=1.0,
+                 mixup_random=0.1):
 
         # ==========================================================
         # 1.1 初始化 - 存储配置
@@ -139,8 +141,6 @@ class LoadImagesAndLabels(Dataset):
             for x in self.image_files
         ]
 
-
-
         # ==========================================================
         # 1.4 缓存标签 (关键步骤) (已修改: 同时缓存图片尺寸)
         # ==========================================================
@@ -152,7 +152,7 @@ class LoadImagesAndLabels(Dataset):
         self.im_hw = [None] * self.n if cache_images_in_ram else None  # (L1: 缩放后尺寸缓存)
 
         # 定义缓存文件的保存路径
-        cache_path = os.path.join(os.path.dirname(img_root), 'data.cache')
+        cache_path = os.path.join(os.path.dirname(img_root), 'data.cache.npy')
 
         if os.path.exists(cache_path):
             print(f'Loading data from cache: {cache_path}')
@@ -162,9 +162,6 @@ class LoadImagesAndLabels(Dataset):
         else:
             # cache_labels_and_shapes_in_disk 现在返回两个字典,使用image_path索引
             self.labels, self.shapes = self.cache_labels_and_shapes_in_disk(cache_path)
-
-
-
 
         if cache_images_in_ram:
             # 开启线程池
@@ -180,16 +177,16 @@ class LoadImagesAndLabels(Dataset):
                 self.images[i], self.im_hw0[i], self.im_hw[i] = result
 
             pbar.close()
-            print("Images cached successfully.")
+            print("RAM Images cached successfully.")
 
         self.mosaic_transform = A.Compose([
             # --- 几何变换 (在 1280x1280 上) ---
             A.Affine(
-                scale=(0.7, 1.5),# 随机缩放: 70% 到 150%
-                translate_percent=(-0.05, 0.05), # 随机平移: -10% 到 +10%
+                scale=(0.7, 1.5),  # 随机缩放: 70% 到 150%
+                translate_percent=(-0.05, 0.05),  # 随机平移: -10% 到 +10%
                 rotate=(0.0, 0.0),  # 随机旋转
                 shear=(0.0, 0.0),  # 随机错切
-                p=1.0 # 有 100% 的概率应用 Affine 变换
+                p=1.0  # 有 100% 的概率应用 Affine 变换
             ),
 
             # --- 透视变换  ---
@@ -197,17 +194,17 @@ class LoadImagesAndLabels(Dataset):
 
             # --- 裁剪 (复现 border=[-320, -320]) ---
             # (从 1280x1280 裁剪中心 640x640)
-            A.CenterCrop(height=img_size, # 目标高度 (e.g., 640)
-                         width=img_size, # 目标宽度 (e.g., 640)
-                         p=1.0 # 100% 总是执行
-            ),
+            A.CenterCrop(height=img_size,  # 目标高度 (e.g., 640)
+                         width=img_size,  # 目标宽度 (e.g., 640)
+                         p=1.0  # 100% 总是执行
+                         ),
 
             # --- 颜色变换 (在 640x640 上) ---
             # A.ColorJitter 集合了 亮度、对比度、饱和度、色调 变换
             A.ColorJitter(
-                brightness=0.4, # 亮度
+                brightness=0.4,  # 亮度
                 contrast=0.4,  # 对比度
-                saturation=0.7, # 饱和度
+                saturation=0.7,  # 饱和度
                 hue=0.015,  # 色调
                 p=0.75  # 有 75% 的概率应用 ColorJitter
             ),
@@ -220,9 +217,9 @@ class LoadImagesAndLabels(Dataset):
             ),
 
             # --- 随机模糊  ---
-            A.Blur(blur_limit=(3, 7),# 模糊核的大小在 3x3 到 7x7 之间
-                    p=0.1    # 有 10% 的概率应用模糊
-            ),
+            A.Blur(blur_limit=(3, 7),  # 模糊核的大小在 3x3 到 7x7 之间
+                   p=0.1  # 有 10% 的概率应用模糊
+                   ),
 
             # 4. 随机转灰度
             A.ToGray(
@@ -251,7 +248,7 @@ class LoadImagesAndLabels(Dataset):
                 translate_percent=(-0.1, 0.1),  # 随机平移: -10% 到 +10%
                 rotate=(0.0, 0.0),  # 随机旋转
                 shear=(0.0, 0.0),  # 随机错切
-                p=1.0 , # 有 100% 的概率应用 Affine 变换
+                p=1.0,  # 有 100% 的概率应用 Affine 变换
             ),
 
             # --- 透视变换  ---
@@ -310,7 +307,6 @@ class LoadImagesAndLabels(Dataset):
             # (验证时不过滤标签)
         ))
 
-
     def __len__(self):
         """返回数据集中图片的数量。"""
         return len(self.image_files)
@@ -336,7 +332,6 @@ class LoadImagesAndLabels(Dataset):
                 transformed_classes = transformed['classes']
             except Exception as e:
                 # 如果变换失败 (例如所有 bboxes 都被裁掉), 加载一个新样本
-                print(f"警告: Mosaic 变换失败 ({e})。正在尝试下一个索引。")
                 return self.__getitem__((index + 1) % self.n)
         else:
             # 加载单张图像 ---
@@ -373,7 +368,7 @@ class LoadImagesAndLabels(Dataset):
                 transformed_classes = transformed['classes']
             except Exception as e:
                 # 如果变换失败, 加载一个新样本
-                print(f"警告: 单张图变换失败 ({e})。正在尝试下一个索引。")
+
                 return self.__getitem__((index + 1) % self.n)
 
         # --- 3. 格式化标签 (转换为 YOLO 格式) ---
@@ -399,8 +394,6 @@ class LoadImagesAndLabels(Dataset):
         # --- 4. 返回最终结果 ---
         # transformed_image 已经是 (C, H, W) 格式的 Tensor (来自 ToTensorV2)
         return transformed_image, labels_out
-
-
 
     def load_mosaic(self, index):
         """
@@ -437,13 +430,13 @@ class LoadImagesAndLabels(Dataset):
         for i, index in enumerate(indices):
             # 加载预处理（缩放）过的图像及其原始尺寸
             # img 是小图, (h, w) 是小图的尺寸 (e.g., 580, 640)
-            image, _,  (h, w) = self.load_image(index)
+            image, _, (h, w) = self.load_image(index)
 
             # 4. 分配 4 个位置 (左上, 右上, 左下, 右下)
             if i == 0:  # i == 0, 我们分配到左上角区域
                 # 创建一个 2s x 2s x 3的灰色(114)大画布
                 # (例如 1280 x 1280 x 3)
-                image4 = np.full((2 * s, 2 * s, image.shape[2]), 114, dtype = np.uint8)
+                image4 = np.full((2 * s, 2 * s, image.shape[2]), 114, dtype=np.uint8)
 
                 # --- 计算坐标 ---
                 # (xc, yc) 是我们在第2部分计算的随机中心点 (e.g., 500, 600)
@@ -490,7 +483,8 @@ class LoadImagesAndLabels(Dataset):
                 source_ymin = 0
 
             # img4[目标_y_min:目标_y_max, 目标_x_min:目标_x_max] = img[源_y_min:源_y_max, 源_x_min:源_x_max]
-            image4[mosaic_ymin:mosaic_ymax, mosaic_xmin:mosaic_xmax] = image[source_ymin:source_ymax, source_xmin:source_xmax]
+            image4[mosaic_ymin:mosaic_ymax, mosaic_xmin:mosaic_xmax] = image[source_ymin:source_ymax,
+                                                                       source_xmin:source_xmax]
 
             # 计算标签的偏移量
             # 这是将 "小图坐标系" 转换到 "大画布坐标系" 的关键
@@ -523,8 +517,6 @@ class LoadImagesAndLabels(Dataset):
         # classes4: (N,) 的类别 ID
         return image4, bboxes4, classes4
 
-
-
     def load_image(self, i):
         """"
         (由 __init__ 和 __getitem__ 调用)
@@ -546,7 +538,7 @@ class LoadImagesAndLabels(Dataset):
         f = os.path.join(self.img_root, self.image_files[i])
         # f = self.image_files[i]
 
-        image = cv2.imread(f) # BGR
+        image = cv2.imread(f)  # BGR
         assert image is not None, f'Image Not Found {f}'
         (h0, w0) = image.shape[:2]  # 原始 hw
 
@@ -557,23 +549,23 @@ class LoadImagesAndLabels(Dataset):
             # 在训练时，DataLoader 的速度是瓶颈，我们希望一切都尽可能快，所以用 INTER_LINEAR。
             # r > 1 (放大时)：当放大图片时，INTER_LINEAR 的效果很好，而且速度快。
             # 当缩小图片时，它的效果通常被认为比INTER_LINEAR更好，可以避免产生波纹（moirépatterns）。但它可能稍慢一点。
-            image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation = interp)
+            image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
 
         (h, w) = image.shape[:2]  # 缩放后的 hw
 
         return image, (h0, w0), (h, w)
 
-
     def cache_labels_and_shapes_in_disk(self, path):
 
         # 如果缓存不存在，则创建它
-        print(f'Caching data to {path} (first time)...')
+        print(f'Caching data in_disk (first time)...')
         # (修正) 初始化包含两个子字典的 cache
         cache = {'labels': {}, 'shapes': {}}
 
         # (tqdm 用于显示进度条)
         # (修正) enumerate 从 0 开始
-        for i, (img_path, label_path) in enumerate(tqdm(zip(self.image_files, self.label_files), desc='Caching data', total=len(self.image_files))):
+        for i, (img_path, label_path) in enumerate(
+                tqdm(zip(self.image_files, self.label_files), desc='Caching data', total=len(self.image_files))):
             try:
                 # ------------------------------------
                 # 1. 缓存标签
@@ -610,8 +602,6 @@ class LoadImagesAndLabels(Dataset):
         # (返回两个字典)
         return cache['labels'], cache['shapes']
 
-
-
     @staticmethod
     def collate_fn(batch):
         """
@@ -630,8 +620,6 @@ class LoadImagesAndLabels(Dataset):
             return torch.stack(images, 0), torch.cat(valid_labels, 0)
         else:
             return torch.stack(images, 0), torch.zeros((0, 6))
-
-
 
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=False, scaleFill=False, scaleup=True, stride=32):
@@ -680,7 +668,6 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=False, scal
     # 2. 计算最终的填充量 (dw, dh)
     # ==================================================================
 
-
     # 计算缩放后、填充前的尺寸 (宽度, 高度) 这样做是为了计算填充量
     new_un_pad = (int(round(shape[1] * r)), int(round(shape[0] * r)))
 
@@ -714,7 +701,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=False, scal
     # 只有当缩放后的尺寸 (new_un_pad) 与原始尺寸 (shape) 不同时，
     # 才执行 cv2.resize。如果尺寸相同，则跳过以节省计算。
     if shape[::-1] != new_un_pad:
-        img = cv2.resize(img, new_un_pad, interpolation = cv2.INTER_LINEAR)
+        img = cv2.resize(img, new_un_pad, interpolation=cv2.INTER_LINEAR)
 
     # ==================================================================
     # 4. 应用边框填充 (Pad)
@@ -728,13 +715,12 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=False, scal
     right = int(round(dw + 0.1))
 
     # 使用 cv2.copyMakeBorder 添加边框
-    img = cv2.copyMakeBorder(img,top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
 
     # ==================================================================
     # 5. 返回结果
     # ==================================================================
     return img, r, (dw * 2, dh * 2)
-
 
 
 def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0):
@@ -745,6 +731,7 @@ def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0):
     y[:, 2] = w * (x[:, 0] + x[:, 2] / 2) + padw  # bottom right x
     y[:, 3] = h * (x[:, 1] + x[:, 3] / 2) + padh  # bottom right y
     return y
+
 
 def xyxy2xywhn(xyxy, w, h, clip=False, eps=1E-3):
     """

@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 
 from torch.nn import Module
+
+
 def bbox_ciou(b1, b2):
     """
     计算CIoU
@@ -56,7 +58,7 @@ def bbox_ciou(b1, b2):
 
     d2 = (b2[..., 0] - b1[..., 0]) ** 2 + (b2[..., 1] - b1[..., 1]) ** 2
     c2 = (torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)) ** 2 + (
-                torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)) ** 2 + 1e-6
+            torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)) ** 2 + 1e-6
     v = 4 * (torch.atan((b1[..., 2] / (b1[..., 3] + 1e-6))) - torch.atan(
         (b2[..., 2] / (b2[..., 3] + 1e-6)))) ** 2 / math.pi ** 2
 
@@ -65,6 +67,7 @@ def bbox_ciou(b1, b2):
         alpha = v / (1 - iou + v + 1e-6)
 
     return iou - d2 / c2 - alpha * v
+
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
     # return positive, negative label smoothing BCE targets
@@ -99,7 +102,6 @@ class ComputeCiou(Module):
         self.anchor_t = 4.0  # 锚框匹配阈值：GT框 与 锚框 的高宽比小于此阈值，才算匹配
         self.gain_ratio = 0.5
         self.anchor_masks = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
-
 
         self.number_classes = m.number_classes  # 类别数
         self.number_detect = m.number_detect  # 检测层数
@@ -148,7 +150,7 @@ class ComputeCiou(Module):
                 # =============================== 代码块 3: 计算定位损失 (CIoU Loss) ===============================
 
                 # 1. 解码预测框, 得到在特征图尺度下的 xywh
-                prediction_xy = pos_sample[..., :2].sigmoid()*2-0.5
+                prediction_xy = pos_sample[..., :2].sigmoid() * 2 - 0.5
                 # prediction_wh = torch.exp(pos_sample[..., 2:4]).clamp(max=1e3) * anchor[i]
                 prediction_wh = (pos_sample[..., 2:4].sigmoid() * 2) ** 2 * anchor[i]
                 prediction_box = torch.cat((prediction_xy, prediction_wh), 1)
@@ -174,9 +176,6 @@ class ComputeCiou(Module):
             obj_loss += self.BCE_obj(prediction[..., 4], tobj)
 
         return {"box_loss": box_loss, "obj_loss": obj_loss, "class_loss": cls_loss}
-
-
-
 
     def build_targets(self, predictions, targets):
 
@@ -251,31 +250,29 @@ class ComputeCiou(Module):
                 # 这是YOLOv5召回率高的一个重要原因
                 gxy_offset = gxy - gij
 
-
                 anchor_size = gain[2:4].long()
 
                 left_up = gxy_offset < self.gain_ratio
                 right_down = gxy_offset > 1 - self.gain_ratio
 
                 valid_left_up = gij > 0
-                valid_right_down = gij < (anchor_size-1)
+                valid_right_down = gij < (anchor_size - 1)
 
                 left_mask = left_up[:, 0] & valid_left_up[:, 0]
                 up_mask = left_up[:, 1] & valid_left_up[:, 1]
                 right_mask = right_down[:, 0] & valid_right_down[:, 0]
                 down_mask = right_down[:, 1] & valid_right_down[:, 1]
 
-                center_mask = torch.ones_like(left_mask, dtype = torch.bool)
+                center_mask = torch.ones_like(left_mask, dtype=torch.bool)
 
                 mask = torch.stack((center_mask, left_mask, up_mask, right_mask, down_mask))
                 # mask[5,N_matches],里面有number_true_box个True
 
                 # t [N_matches, 7] -> t [5,N_matches, 7] ->[number_true_box,7]
-                t = t.repeat((5,1,1))[mask].view(-1, 7)
-                print(t.shape)
+                t = t.repeat((5, 1, 1))[mask].view(-1, 7)
 
                 offsets = (torch.zeros_like(gxy)[None] + offset[:, None])[mask].view(-1, 2)
-                print(offsets.shape)
+
                 # gxy[N_matches, 2] -> gxy[1, N_matches, 2]
                 # offset[5,2] ->offset[5, 1, 2]
                 #  [5, N_matches, 2]用mask取出number_true_box个物体

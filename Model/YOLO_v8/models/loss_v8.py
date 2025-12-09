@@ -621,7 +621,7 @@ class v8loss(Module):
         )
 
         # 计算目标分数总和 (用于归一化，防止除零)
-        target_scores_sum = max(target_scores.sum(), 1.0)
+        target_scores_sum = target_scores.sum().clamp(min = 1.0)
 
         # =============================================================
         # 第 7 步: 计算 Loss

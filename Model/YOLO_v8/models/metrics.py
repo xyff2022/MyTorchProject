@@ -196,8 +196,6 @@ def non_max_suppression_v8(
         predictions,
         conf_thres=0.25,
         iou_thres=0.45,
-        classes=None,
-        agnostic=False,
         max_det=300,
         nc=20
 ):
@@ -229,13 +227,6 @@ def non_max_suppression_v8(
                           默认 0.45，范围 [0, 1]
                           值越大，保留的重叠框越多
 
-        classes (list[int] | None): 要保留的类别列表
-                                   例如 [0, 2, 3] 表示只保留第 0、2、3 类
-                                   None 表示保留所有类别
-
-        agnostic (bool): 是否进行类别无关的 NMS
-                        True:  所有类别一起做 NMS (不同类别的框也会互相抑制)
-                        False: 每个类别单独做 NMS (推荐)
 
 
         max_det (int): 每张图像最多保留的检测数量
